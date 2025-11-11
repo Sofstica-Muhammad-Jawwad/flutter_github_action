@@ -1,34 +1,37 @@
-name: Create Pull Request for Release Branch
+name: Auto Create Pull Request
 
 on:
-  push:
+  create:
     branches:
-      - 'release/*'  # triggers for any branch starting with 'release/'
+      - '*'   # Triggers when any new branch is created
 
 jobs:
-  create-pr:
+  create-pull-request:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-      pull-requests: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get branch name
-        id: extract_branch
-        run: echo "branch_name=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+      - name: Check if branch is not main or default
+        id: check_branch
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == "main" || "${GITHUB_REF_NAME}" == "master" ]]; then
+            echo "Default branch, skipping PR creation."
+            echo "should_create=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_create=true" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Create pull request
+      - name: Create Pull Request
+        if: steps.check_branch.outputs.should_create == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          base: main                # Target branch for the PR
-          head: ${{ steps.extract_branch.outputs.branch_name }}
-          title: "Release: ${{ steps.extract_branch.outputs.branch_name }}"
+          branch: ${{ github.ref_name }}
+          base: main               # Change to your default branch if different
+          title: "Auto PR: ${{ github.ref_name }}"
           body: |
-            This pull request was automatically created for the release branch **${{ steps.extract_branch.outputs.branch_name }}**.
+            This pull request was automatically created when the branch **${{ github.ref_name }}** was created.
             Please review and merge when ready.
           draft: false
