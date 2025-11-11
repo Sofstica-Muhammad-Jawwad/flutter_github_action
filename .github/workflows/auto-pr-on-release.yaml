@@ -1,0 +1,28 @@
+name: Auto PR on Release Branch
+
+on:
+  push:
+    branches:
+      - 'release/*'   # triggers on any branch starting with release/
+
+jobs:
+  create_pr:
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Pull Request to develop
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: ${{ github.ref_name }}
+          destination_branch: develop
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pr_title: "Merge ${{ github.ref_name }} into develop"
+          pr_body: "Automated PR generated when branch ${{ github.ref_name }} was created."
+          pr_label: "auto-pr"
