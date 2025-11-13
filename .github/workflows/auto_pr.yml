@@ -9,16 +9,14 @@ jobs:
   create_pull_request:
     runs-on: ubuntu-latest
     
-    # REQUIRED: Explicitly set permissions for token to create the PR
     permissions:
       contents: write
       pull-requests: write
       
     steps:
-      # 🌟 STEP 1: ADD THIS! Checkout the repository code 🌟
+      # STEP 1: Checkout the repository code
       - name: Checkout Repository
         uses: actions/checkout@v4
-        # Set fetch-depth to 0 to fetch all history needed for Git operations
         with:
           fetch-depth: 0 
           
@@ -26,7 +24,11 @@ jobs:
       - name: Create Pull Request from Release Branch
         uses: repo-sync/pull-request@v2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # 🌟 FIX APPLIED HERE 🌟
+          # Use a manually created PAT (e.g., PAT_TOKEN) instead of GITHUB_TOKEN 
+          # to ensure the second workflow (auto_release.yml) is triggered.
+          github_token: ${{ secrets.PAT_TOKEN }}
+          # -------------------------
           source_branch: ${{ github.ref_name }}
           destination_branch: 'main'
           pr_title: '${{ github.ref_name }}'
