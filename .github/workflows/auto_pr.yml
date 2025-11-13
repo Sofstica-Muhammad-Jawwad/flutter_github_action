@@ -9,6 +9,11 @@ on:
 jobs:
   create_pull_request:
     runs-on: ubuntu-latest
+
+    # 🌟 ADD THIS BLOCK 🌟
+    permissions:
+      contents: write # Needed for some underlying git operations
+      pull-requests: write # This is the critical one for creating the PR
     
     steps:
       - name: Create Pull Request from Release Branch
