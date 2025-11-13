@@ -23,12 +23,10 @@ jobs:
       # STEP 2: Run the Pull Request Action
       - name: Create Pull Request from Release Branch
         uses: repo-sync/pull-request@v2
+        # 🌟 FIX APPLIED HERE: Pass the PAT as the GITHUB_TOKEN environment variable 🌟
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
-          # 🌟 FIX APPLIED HERE 🌟
-          # Use a manually created PAT (e.g., PAT_TOKEN) instead of GITHUB_TOKEN 
-          # to ensure the second workflow (auto_release.yml) is triggered.
-          github_token: ${{ secrets.PAT_TOKEN }}
-          # -------------------------
           source_branch: ${{ github.ref_name }}
           destination_branch: 'main'
           pr_title: '${{ github.ref_name }}'
