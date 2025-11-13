@@ -1,0 +1,52 @@
+name: 🚀 Auto GitHub Release
+
+on:
+  pull_request:
+    # Trigger only when a PR is opened
+    types: [opened]
+    # Filter for PRs coming from release branches only
+    branches:
+      - 'main' # Only watch PRs targeting the main branch
+
+jobs:
+  create_release:
+    # Condition: Only run if the head branch was a release branch (no need to check for merge status)
+    if: startsWith(github.event.pull_request.head.ref, 'release/')
+    
+    runs-on: ubuntu-latest
+    
+    # REQUIRED: Grant write permissions for creating releases
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Extract Version from Branch Name
+        id: extract_version
+        run: |
+          # Example: release/1.2.3 -> 1.2.3
+          BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          VERSION_NUMBER="${BRANCH_NAME#release/}"
+          
+          # Output the version number for use in subsequent steps
+          echo "VERSION_NUMBER=$VERSION_NUMBER" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release (Draft)
+        uses: softprops/action-gh-release@v1
+        with:
+          # Token for authentication
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+          # The release tag (e.g., v1.2.3)
+          tag_name: "v${{ steps.extract_version.outputs.VERSION_NUMBER }}"
+          
+          # The release name (e.g., v1.2.3)
+          name: "v${{ steps.extract_version.outputs.VERSION_NUMBER }}"
+          
+          # The target branch should be the branch the PR came from (release/X.X.X)
+          target_commitish: ${{ github.event.pull_request.head.ref }}
+          
+          # Set as a draft since the PR is not yet merged. This prevents an unstable release from being published immediately.
+          draft: true 
+          
+          # Use the PR body as the release description (optional, but useful)
+          body: ${{ github.event.pull_request.body }}

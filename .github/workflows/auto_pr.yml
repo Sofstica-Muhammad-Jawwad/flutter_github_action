@@ -29,7 +29,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           source_branch: ${{ github.ref_name }}
           destination_branch: 'main'
-          pr_title: '🚀 Release: ${{ github.ref_name }}'
+          pr_title: '${{ github.ref_name }}'
           pr_body: |
             ## Automated Release Pull Request
             
