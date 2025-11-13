@@ -2,7 +2,7 @@ name: 🚀 Auto GitHub Release
 
 on:
   push:
-    # Trigger on the same push event that starts the PR creation workflow
+    # Trigger immediately when a push happens to any release branch
     branches:
       - 'release/*.*.*'
 
@@ -14,73 +14,43 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
     
-    # REQUIRED: Grant write permissions for creating releases
     permissions:
       contents: write
-      pull-requests: read # Needed to check if the PR exists
       
     steps:
-      - name: Check if Pull Request Exists
-        id: check_pr
-        uses: actions/github-script@v6
-        with:
-          script: |
-            // Get the current source branch (e.g., release/0.0.9)
-            const sourceBranch = context.ref.replace('refs/heads/', '');
-            const destinationBranch = 'main';
-
-            // Use the GitHub API to search for an open PR from sourceBranch to destinationBranch
-            const { data: pullRequests } = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              head: `${context.repo.owner}:${sourceBranch}`,
-              base: destinationBranch,
-              state: 'open',
-            });
-
-            // If a PR is found, set the output flag to true
-            if (pullRequests.length > 0) {
-              console.log(`Found open PR #${pullRequests[0].number}. Proceeding with draft release creation.`);
-              core.setOutput('pr_exists', 'true');
-              core.setOutput('pr_body', pullRequests[0].body || '');
-            } else {
-              console.log('No open PR found for this branch. Skipping draft release creation.');
-              core.setOutput('pr_exists', 'false');
-            }
-          
       - name: Extract Version from Branch Name
         id: extract_version
-        # Only run if the previous step found an open PR
-        if: steps.check_pr.outputs.pr_exists == 'true'
         run: |
-          # Example: refs/heads/release/1.2.3 -> release/1.2.3 -> 1.2.3
-          BRANCH_NAME="${{ github.ref }}"
-          VERSION_NUMBER="${BRANCH_NAME##*/}" # Remove refs/heads/
-          VERSION_NUMBER="${VERSION_NUMBER#release/}" # Remove release/
+          # The branch ref is e.g., refs/heads/release/0.0.9
+          BRANCH_REF="${{ github.ref }}"
+          # Extracts just the version number (e.g., 0.0.9)
+          VERSION_NUMBER="${BRANCH_REF#refs/heads/release/}"
           
-          # Output the version number for use in subsequent steps
+          # Output the version number
           echo "VERSION_NUMBER=$VERSION_NUMBER" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release (Draft)
         uses: softprops/action-gh-release@v1
-        # Only run if the previous steps succeeded
-        if: steps.check_pr.outputs.pr_exists == 'true'
         
-        # Token is automatically picked up from the job's 'env' block (GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }})
-        # Note: 'softprops/action-gh-release@v1' defaults to using the GITHUB_TOKEN environment variable.
+        # Token is automatically picked up from the job's 'env' block
 
         with:
-          # The release tag (e.g., v1.2.3)
+          # The release tag (e.g., v0.0.9)
           tag_name: "v${{ steps.extract_version.outputs.VERSION_NUMBER }}"
           
-          # The release name (e.g., v1.2.3)
+          # The release name (e.g., v0.0.9)
           name: "v${{ steps.extract_version.outputs.VERSION_NUMBER }}"
           
           # The target commitish is the branch itself
           target_commitish: ${{ github.ref_name }}
           
-          # Set as a draft since the PR is not yet merged.
+          # Set as a draft since it's created immediately on push
           draft: true 
           
-          # Use the body extracted from the PR in the first step
-          body: ${{ steps.check_pr.outputs.pr_body }}
+          # Use a standard body
+          body: |
+            ### Automated Draft Release
+            
+            This draft release was created automatically upon pushing to the **`${{ github.ref_name }}`** branch.
+            
+            It is awaiting the merge of the associated Pull Request into `main` before being published.
