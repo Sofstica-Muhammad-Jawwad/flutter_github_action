@@ -2,42 +2,39 @@ name: Auto Create Release PR
 
 on:
   push:
-    # 🎯 Trigger this workflow only on pushes to branches matching 'release/X.X.X'
     branches:
       - 'release/*.*.*'
 
 jobs:
   create_pull_request:
     runs-on: ubuntu-latest
-
-    # 🌟 ADD THIS BLOCK 🌟
-    permissions:
-      contents: write # Needed for some underlying git operations
-      pull-requests: write # This is the critical one for creating the PR
     
+    # REQUIRED: Explicitly set permissions for token to create the PR
+    permissions:
+      contents: write
+      pull-requests: write
+      
     steps:
+      # 🌟 STEP 1: ADD THIS! Checkout the repository code 🌟
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        # Set fetch-depth to 0 to fetch all history needed for Git operations
+        with:
+          fetch-depth: 0 
+          
+      # STEP 2: Run the Pull Request Action
       - name: Create Pull Request from Release Branch
-        # Uses the repo-sync/pull-request action to create or update a PR
         uses: repo-sync/pull-request@v2
         with:
-          # 🔑 Use the built-in token to authenticate the action
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          
-          # The branch that was pushed (e.g., release/1.0.0)
           source_branch: ${{ github.ref_name }}
-          
-          # The target branch (where the release branch should be merged into)
           destination_branch: 'main'
-          
-          # The title for the new pull request
           pr_title: '🚀 Release: ${{ github.ref_name }}'
-          
-          # The body content for the pull request
           pr_body: |
             ## Automated Release Pull Request
             
-            This Pull Request was automatically created by the CI/CD pipeline when the branch 
-            **`${{ github.ref_name }}`** was pushed.
+            This Pull Request was automatically created by the CI/CD pipeline upon pushing 
+            to the **`${{ github.ref_name }}`** branch.
             
             **Target Branch:** `main`
             
