@@ -10,7 +10,7 @@ on:
 
 jobs:
   create_release:
-    # Condition: Only run if the head branch was a release branch (no need to check for merge status)
+    # Condition: Only run if the head branch was a release branch (e.g., starts with 'release/')
     if: startsWith(github.event.pull_request.head.ref, 'release/')
     
     runs-on: ubuntu-latest
@@ -32,9 +32,10 @@ jobs:
 
       - name: Create GitHub Release (Draft)
         uses: softprops/action-gh-release@v1
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
-          # Token for authentication
-          token: ${{ secrets.GITHUB_TOKEN }}
           
           # The release tag (e.g., v1.2.3)
           tag_name: "v${{ steps.extract_version.outputs.VERSION_NUMBER }}"
@@ -45,8 +46,8 @@ jobs:
           # The target branch should be the branch the PR came from (release/X.X.X)
           target_commitish: ${{ github.event.pull_request.head.ref }}
           
-          # Set as a draft since the PR is not yet merged. This prevents an unstable release from being published immediately.
+          # Set as a draft since the PR is not yet merged.
           draft: true 
           
-          # Use the PR body as the release description (optional, but useful)
+          # Use the PR body as the release description
           body: ${{ github.event.pull_request.body }}
