@@ -10,7 +10,7 @@ jobs:
   create_release:
     runs-on: ubuntu-latest
     
-    # Use the PAT_TOKEN for all API interactions in this job
+    # Use the PAT_TOKEN for the overall job environment, which all steps will use
     env:
       GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
     
@@ -25,6 +25,8 @@ jobs:
           BRANCH_REF="${{ github.ref }}"
           # Removes 'refs/heads/' and 'release/' to get just the version number
           VERSION_NUMBER="${BRANCH_REF#refs/heads/release/}"
+          # Removes the 'release/' prefix if present (in case of tag or other ref)
+          VERSION_NUMBER="${VERSION_NUMBER#release/}"
           
           # Output the version number
           echo "VERSION_NUMBER=$VERSION_NUMBER" >> $GITHUB_OUTPUT
@@ -32,9 +34,9 @@ jobs:
       - name: Generate Release Notes
         id: generate_notes
         uses: actions/github-script@v6
+        
+        # Token is picked up automatically from the job's 'env' block (GITHUB_TOKEN)
         with:
-          # Use PAT_TOKEN for this API call
-          github-token: ${{ secrets.PAT_TOKEN }}
           script: |
             const newTagName = `v${process.env.VERSION_NUMBER}`;
 
@@ -54,7 +56,7 @@ jobs:
       - name: Create GitHub Release (Draft)
         uses: softprops/action-gh-release@v1
         
-        # Token is automatically picked up from the job's 'env' block (GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }})
+        # Token is automatically picked up from the job's 'env' block (GITHUB_TOKEN)
 
         with:
           # The release tag (e.g., v0.0.9)
