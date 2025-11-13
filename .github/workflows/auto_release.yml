@@ -15,7 +15,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
     
     permissions:
-      contents: write
+      contents: write # Needed to create the release
       
     steps:
       - name: Extract Version from Branch Name
@@ -23,16 +23,38 @@ jobs:
         run: |
           # The branch ref is e.g., refs/heads/release/0.0.9
           BRANCH_REF="${{ github.ref }}"
-          # Extracts just the version number (e.g., 0.0.9)
+          # Removes 'refs/heads/' and 'release/' to get just the version number
           VERSION_NUMBER="${BRANCH_REF#refs/heads/release/}"
           
           # Output the version number
           echo "VERSION_NUMBER=$VERSION_NUMBER" >> $GITHUB_OUTPUT
 
+      - name: Generate Release Notes
+        id: generate_notes
+        uses: actions/github-script@v6
+        with:
+          # Use PAT_TOKEN for this API call
+          github-token: ${{ secrets.PAT_TOKEN }}
+          script: |
+            const newTagName = `v${process.env.VERSION_NUMBER}`;
+
+            // API call to generate notes based on the current tag and the latest release
+            const { data } = await github.rest.repos.generateReleaseNotes({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: newTagName,
+              target_commitish: context.sha,
+            });
+
+            // Set the generated body as a step output
+            core.setOutput('release_body', data.body);
+        env:
+          VERSION_NUMBER: ${{ steps.extract_version.outputs.VERSION_NUMBER }}
+
       - name: Create GitHub Release (Draft)
         uses: softprops/action-gh-release@v1
         
-        # Token is automatically picked up from the job's 'env' block
+        # Token is automatically picked up from the job's 'env' block (GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }})
 
         with:
           # The release tag (e.g., v0.0.9)
@@ -44,13 +66,8 @@ jobs:
           # The target commitish is the branch itself
           target_commitish: ${{ github.ref_name }}
           
-          # Set as a draft since it's created immediately on push
+          # Set as a draft
           draft: true 
           
-          # Use a standard body
-          body: |
-            ### Automated Draft Release
-            
-            This draft release was created automatically upon pushing to the **`${{ github.ref_name }}`** branch.
-            
-            It is awaiting the merge of the associated Pull Request into `main` before being published.
+          # Use the generated body from the previous step
+          body: ${{ steps.generate_notes.outputs.release_body }}
