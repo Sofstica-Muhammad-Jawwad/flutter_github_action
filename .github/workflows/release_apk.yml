@@ -23,7 +23,8 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.2'
+          # Updated to a version (3.38.1) that includes Dart SDK ^3.9.0
+          flutter-version: '3.38.1'
 
       - name: Checkout code
         uses: actions/checkout@v2
@@ -93,5 +94,3 @@ jobs:
               },
             });
             console.log(`Uploaded ${artifactName} to release ID ${releaseId}`);
-
-      
