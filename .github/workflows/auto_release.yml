@@ -69,7 +69,7 @@ jobs:
           target_commitish: ${{ github.ref_name }}
           
           # Set as a draft
-          draft: true 
+          # draft: true 
           
           # Use the generated body from the previous step
           body: ${{ steps.generate_notes.outputs.release_body }}
