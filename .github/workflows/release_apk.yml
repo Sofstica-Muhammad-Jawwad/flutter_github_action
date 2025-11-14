@@ -1,0 +1,97 @@
+name: Release APK
+
+on:
+  release:
+    types:
+      - created
+  workflow_dispatch:
+
+env:
+  KEY_JKS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'adopt'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.16.0'
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Get keystore file
+        run: |
+          echo $KEY_JKS | base64 --decode > android/rrs_keystore.jks
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        id: upload_asset
+        uses: actions/upload-artifact@v2
+        with:
+          name: app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Get latest release
+        id: get_latest_release
+        uses: actions/github-script@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        with:
+          script: |
+            const response = await github.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 1
+            });
+            const latestRelease = response.data[0];
+            console.log("Latest Release Tag: " + latestRelease.tag_name);
+            console.log("Latest Release ID: " + latestRelease.id);
+            console.log("Latest Release Name: " + latestRelease.name);
+            core.setOutput("latest_release_tag", latestRelease.tag_name);
+            core.setOutput("latest_release_id", latestRelease.id);
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+      - name: Install dependencies
+        run: npm install @actions/github
+
+      - name: Attach APK to Latest Release
+        id: attach_asset
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.ACTION_TOKEN }}
+          script: |
+            const fs = require('fs');
+            
+            const artifactPath = process.env.GITHUB_WORKSPACE + '/build/app/outputs/flutter-apk/app-release.apk';
+            const fileSize = fs.statSync(artifactPath).size;
+            const artifactName = 'app-release.apk';
+            const releaseId = ${{ steps.get_latest_release.outputs.latest_release_id }};
+            const uploadUrl = await github.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: releaseId,
+              name: artifactName,
+              data: fs.readFileSync(artifactPath),
+              headers: {
+                'content-length': fileSize,
+                'content-type': 'application/octet-stream',
+              },
+            });
+            console.log(`Uploaded ${artifactName} to release ID ${releaseId}`);
+
+      
