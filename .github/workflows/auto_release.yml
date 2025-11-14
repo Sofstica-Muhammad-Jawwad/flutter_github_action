@@ -1,75 +1,102 @@
-name: 🚀 Auto GitHub Release
+name: Release APK
 
 on:
-  push:
-    # Trigger immediately when a push happens to any release branch
-    branches:
-      - 'release/*.*.*'
+  release:
+    types:
+      - created
+  workflow_dispatch:
+
+env:
+  KEY_JKS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+  # --- ADDED: Placeholder Secrets for Signing Configuration ---
+  # NOTE: You must define these three secrets in your GitHub repository settings.
+  KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+  KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+  STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+  # ----------------------------------------------------------
 
 jobs:
-  create_release:
+  release:
     runs-on: ubuntu-latest
-    
-    # Use the PAT_TOKEN for the overall job environment, which all steps will use
-    env:
-      GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
-    
-    permissions:
-      contents: write # Needed to create the release
-      
-    steps:
-      - name: Extract Version from Branch Name
-        id: extract_version
-        run: |
-          # The branch ref is e.g., refs/heads/release/0.0.9
-          BRANCH_REF="${{ github.ref }}"
-          # Removes 'refs/heads/' and 'release/' to get just the version number
-          VERSION_NUMBER="${BRANCH_REF#refs/heads/release/}"
-          # Removes the 'release/' prefix if present (in case of tag or other ref)
-          VERSION_NUMBER="${VERSION_NUMBER#release/}"
-          
-          # Output the version number
-          echo "VERSION_NUMBER=$VERSION_NUMBER" >> $GITHUB_OUTPUT
 
-      - name: Generate Release Notes
-        id: generate_notes
-        uses: actions/github-script@v6
-        
-        # Token is picked up automatically from the job's 'env' block (GITHUB_TOKEN)
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'adopt'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          # Using a version (3.38.1) that includes Dart SDK ^3.9.0 to fix the previous error.
+          flutter-version: '3.38.1'
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Get keystore file
+        # Creates the JKS file that the Gradle script will now reference.
+        run: |
+          echo $KEY_JKS | base64 --decode > android/flutter-github-action.jks
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        id: upload_asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Get latest release
+        id: get_latest_release
+        uses: actions/github-script@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           script: |
-            const newTagName = `v${process.env.VERSION_NUMBER}`;
-
-            // API call to generate notes based on the current tag and the latest release
-            const { data } = await github.rest.repos.generateReleaseNotes({
+            const response = await github.repos.listReleases({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: newTagName,
-              target_commitish: context.sha,
+              per_page: 1
             });
+            const latestRelease = response.data[0];
+            console.log("Latest Release Tag: " + latestRelease.tag_name);
+            console.log("Latest Release ID: " + latestRelease.id);
+            core.setOutput("latest_release_tag", latestRelease.tag_name);
+            core.setOutput("latest_release_id", latestRelease.id);
 
-            // Set the generated body as a step output
-            core.setOutput('release_body', data.body);
-        env:
-          VERSION_NUMBER: ${{ steps.extract_version.outputs.VERSION_NUMBER }}
-
-      - name: Create GitHub Release (Draft)
-        uses: softprops/action-gh-release@v1
-        
-        # Token is automatically picked up from the job's 'env' block (GITHUB_TOKEN)
-
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
         with:
-          # The release tag (e.g., v0.0.9)
-          tag_name: "v${{ steps.extract_version.outputs.VERSION_NUMBER }}"
-          
-          # The release name (e.g., v0.0.9)
-          name: "v${{ steps.extract_version.outputs.VERSION_NUMBER }}"
-          
-          # The target commitish is the branch itself
-          target_commitish: ${{ github.ref_name }}
-          
-          # Set as a draft
-          # draft: true 
-          
-          # Use the generated body from the previous step
-          body: ${{ steps.generate_notes.outputs.release_body }}
+          node-version: '14'
+
+      - name: Install dependencies
+        run: npm install @actions/github
+
+      - name: Attach APK to Latest Release
+        id: attach_asset
+        uses: actions/github-script@v4
+        with:
+          github-token: ${{ secrets.ACTION_TOKEN }}
+          script: |
+            const fs = require('fs');
+            
+            const artifactPath = process.env.GITHUB_WORKSPACE + '/build/app/outputs/flutter-apk/app-release.apk';
+            const fileSize = fs.statSync(artifactPath).size;
+            const artifactName = 'app-release.apk';
+            const releaseId = ${{ steps.get_latest_release.outputs.latest_release_id }};
+            const uploadUrl = await github.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: releaseId,
+              name: artifactName,
+              data: fs.readFileSync(artifactPath),
+              headers: {
+                'content-length': fileSize,
+                'content-type': 'application/octet-stream',
+              },
+            });
+            console.log(`Uploaded ${artifactName} to release ID ${releaseId}`);

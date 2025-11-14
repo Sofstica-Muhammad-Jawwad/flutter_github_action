@@ -8,11 +8,11 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val keystoreProperties = Properties()
-val keystorePropertiesFile = rootProject.file("key.properties")
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
-}
+// val keystoreProperties = Properties()
+// val keystorePropertiesFile = rootProject.file("key.properties")
+// if (keystorePropertiesFile.exists()) {
+//     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+// }
 
 android {
     namespace = "com.example.flutter_github_action"
@@ -41,10 +41,16 @@ android {
 
         signingConfigs {
         create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = keystoreProperties["storeFile"]?.let { file(it) }
-            storePassword = keystoreProperties["storePassword"] as String
+            // keyAlias = keystoreProperties["keyAlias"] as String
+            // keyPassword = keystoreProperties["keyPassword"] as String
+            // storeFile = keystoreProperties["storeFile"]?.let { file(it) }
+            // storePassword = keystoreProperties["storePassword"] as String
+
+            keyAlias = System.getenv("KEY_ALIAS") ?: error("KEY_ALIAS environment variable not set.")
+            keyPassword = System.getenv("KEY_PASSWORD") ?: error("KEY_PASSWORD environment variable not set.")
+            // Reference the JKS file created by the GitHub Action
+            storeFile = file("flutter-github-action.jks") 
+            storePassword = System.getenv("STORE_PASSWORD") ?: error("STORE_PASSWORD environment variable not set.")
         }
     }
 
