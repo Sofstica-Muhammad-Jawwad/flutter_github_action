@@ -30,7 +30,7 @@ jobs:
 
       - name: Get keystore file
         run: |
-          echo $KEY_JKS | base64 --decode > android/rrs_keystore.jks
+          echo $KEY_JKS | base64 --decode > android/flutter-github-action.jks
 
       - name: Build APK
         run: flutter build apk --release
