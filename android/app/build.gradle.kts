@@ -49,7 +49,7 @@ android {
             keyAlias = System.getenv("KEY_ALIAS") ?: error("KEY_ALIAS environment variable not set.")
             keyPassword = System.getenv("KEY_PASSWORD") ?: error("KEY_PASSWORD environment variable not set.")
             // Reference the JKS file created by the GitHub Action
-            storeFile = file("flutter-github-action.jks") 
+            storeFile = rootProject.file("android/flutter-github-action.jks")
             storePassword = System.getenv("STORE_PASSWORD") ?: error("STORE_PASSWORD environment variable not set.")
         }
     }
