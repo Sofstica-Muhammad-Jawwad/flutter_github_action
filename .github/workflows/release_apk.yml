@@ -8,6 +8,12 @@ on:
 
 env:
   KEY_JKS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+  # --- ADDED: Placeholder Secrets for Signing Configuration ---
+  # NOTE: You must define these three secrets in your GitHub repository settings.
+  KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+  KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+  STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+  # ----------------------------------------------------------
 
 jobs:
   release:
@@ -23,13 +29,14 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          # Updated to a version (3.38.1) that includes Dart SDK ^3.9.0
+          # Using a version (3.38.1) that includes Dart SDK ^3.9.0 to fix the previous error.
           flutter-version: '3.38.1'
 
       - name: Checkout code
         uses: actions/checkout@v2
 
       - name: Get keystore file
+        # Creates the JKS file that the Gradle script will now reference.
         run: |
           echo $KEY_JKS | base64 --decode > android/flutter-github-action.jks
 
@@ -58,7 +65,6 @@ jobs:
             const latestRelease = response.data[0];
             console.log("Latest Release Tag: " + latestRelease.tag_name);
             console.log("Latest Release ID: " + latestRelease.id);
-            console.log("Latest Release Name: " + latestRelease.name);
             core.setOutput("latest_release_tag", latestRelease.tag_name);
             core.setOutput("latest_release_id", latestRelease.id);
 
