@@ -7,13 +7,10 @@ on:
   workflow_dispatch:
 
 env:
-  KEY_JKS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-  # --- ADDED: Placeholder Secrets for Signing Configuration ---
-  # NOTE: You must define these three secrets in your GitHub repository settings.
+  KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
   KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
   KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
   STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-  # ----------------------------------------------------------
 
 jobs:
   release:
@@ -29,28 +26,31 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          # Using a version (3.38.1) that includes Dart SDK ^3.9.0 to fix the previous error.
           flutter-version: '3.38.1'
 
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v2
 
-      - name: Get keystore file
-        # Creates the JKS file that the Gradle script will now reference.
+      - name: Decode Keystore
+        # ⬅️ Correct path where Gradle looks for the file
         run: |
-          echo $KEY_JKS | base64 --decode > android/flutter-github-action.jks
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/flutter-github-action.jks
+          ls -la android/app  # Debug check
 
-      - name: Build APK
+      - name: Build APK in Release Mode
+        env:
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: flutter build apk --release
 
-      - name: Upload APK
-        id: upload_asset
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release.apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
-      - name: Get latest release
+      - name: Get latest release info
         id: get_latest_release
         uses: actions/github-script@v4
         env:
@@ -63,9 +63,6 @@ jobs:
               per_page: 1
             });
             const latestRelease = response.data[0];
-            console.log("Latest Release Tag: " + latestRelease.tag_name);
-            console.log("Latest Release ID: " + latestRelease.id);
-            core.setOutput("latest_release_tag", latestRelease.tag_name);
             core.setOutput("latest_release_id", latestRelease.id);
 
       - name: Set up Node.js
@@ -73,30 +70,28 @@ jobs:
         with:
           node-version: '14'
 
-      - name: Install dependencies
+      - name: Install GitHub libs
         run: npm install @actions/github
 
-      - name: Attach APK to Latest Release
-        id: attach_asset
+      - name: Attach APK to Release
         uses: actions/github-script@v4
         with:
           github-token: ${{ secrets.ACTION_TOKEN }}
           script: |
             const fs = require('fs');
-            
-            const artifactPath = process.env.GITHUB_WORKSPACE + '/build/app/outputs/flutter-apk/app-release.apk';
-            const fileSize = fs.statSync(artifactPath).size;
-            const artifactName = 'app-release.apk';
-            const releaseId = ${{ steps.get_latest_release.outputs.latest_release_id }};
-            const uploadUrl = await github.repos.uploadReleaseAsset({
+            const file = process.env.GITHUB_WORKSPACE + '/build/app/outputs/flutter-apk/app-release.apk';
+            const size = fs.statSync(file).size;
+
+            await github.repos.uploadReleaseAsset({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              release_id: releaseId,
-              name: artifactName,
-              data: fs.readFileSync(artifactPath),
+              release_id: ${{ steps.get_latest_release.outputs.latest_release_id }},
+              name: 'app-release.apk',
+              data: fs.readFileSync(file),
               headers: {
-                'content-length': fileSize,
-                'content-type': 'application/octet-stream',
-              },
+                'content-type': 'application/vnd.android.package-archive',
+                'content-length': size
+              }
             });
-            console.log(`Uploaded ${artifactName} to release ID ${releaseId}`);
+
+            console.log("APK uploaded successfully!");
