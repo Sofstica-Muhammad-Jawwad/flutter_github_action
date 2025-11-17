@@ -76,7 +76,7 @@ jobs:
       - name: Attach APK to Release
         uses: actions/github-script@v4
         with:
-          github-token: ${{ secrets.ACTION_TOKEN }}
+          github-token: ${{ secrets.PAT_TOKEN }}
           script: |
             const fs = require('fs');
             const file = process.env.GITHUB_WORKSPACE + '/build/app/outputs/flutter-apk/app-release.apk';
