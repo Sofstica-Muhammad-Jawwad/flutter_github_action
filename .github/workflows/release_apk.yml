@@ -1,4 +1,4 @@
-name: Release APK
+name: 3️⃣ Attached APK to Release
 
 on:
   release:

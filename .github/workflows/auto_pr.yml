@@ -1,4 +1,4 @@
-name: Auto Create Release PR
+name: 1️⃣ Auto Create Release PR
 
 on:
   push:
@@ -23,7 +23,6 @@ jobs:
       # STEP 2: Run the Pull Request Action
       - name: Create Pull Request from Release Branch
         uses: repo-sync/pull-request@v2
-        # 🌟 FIX APPLIED HERE: Pass the PAT as the GITHUB_TOKEN environment variable 🌟
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
